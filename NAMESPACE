@@ -1,0 +1,7 @@
+S3method(plot,swReg)
+S3method(predict,swReg)
+export(swReg)
+export(swReg.xval)
+export(plot.swReg)
+export(predict.swReg)
+importFrom("graphics", "lines", "plot")
