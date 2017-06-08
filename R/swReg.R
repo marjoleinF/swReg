@@ -69,13 +69,14 @@ swReg <- function (X, Y, stepsize = 0.1, standardizeY = TRUE)
   bUnstand <- c(intercept, bUnstand)
   names(bUnstand) <- c("(Intercept)", colnames(X))
   
-  return(list(unstandardized.coef = bUnstand, standardized.coef = b,
+  result<- list(unstandardized.coef = bUnstand, standardized.coef = b,
               iteration = iteration, stepsize = stepsize, standardizeY = standardizeY, 
               coef.path = data.frame(matrix(
                 unlist(path), ncol = p, nrow = iteration, byrow = TRUE, 
                 dimnames = list(1:iteration, colnames(X)))),
               data = list(X = X, Y = Y))
-  )  
+  class(result) <- "swReg"
+  return(result)
 }
 
 #' Plot forward stagewise regression path
@@ -157,7 +158,7 @@ predict.swReg <- function(object, newdata = object$data$X, ...) {
 #'  Y <- Boston$medv
 #'  swReg2 <- swReg(X, Y, stepsize = .01)
 #'  xval2 <- swReg.xval(swReg2)
-#'  mean(xval2$error^2)# MSE
+#'  mean(xval2$error^2) # MSE
 swReg.xval <- function(object, k = 10) {
   # get observation ids for in folds:
   ids <- peperr::resample.indices(n = nrow(object$data$X), sample.n = 10, method = "cv")

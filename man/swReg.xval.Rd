@@ -24,5 +24,5 @@ A list with iteration numbers on the x-axis and coefficient values on the y-axis
  Y <- Boston$medv
  swReg2 <- swReg(X, Y, stepsize = .01)
  xval2 <- swReg.xval(swReg2)
- mean(xval2$error^2)# MSE
+ mean(xval2$error^2) # MSE
 }
