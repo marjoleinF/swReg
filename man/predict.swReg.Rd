@@ -19,3 +19,13 @@ A vector of predictions for \code{newdata}.
 \description{
 \code{predict.swReg} returns predictions for a given swReg model
 }
+\examples{
+## Example using Boston Housing data:
+ library(MASS)
+ X <- as.matrix(Boston[1:400,-14])
+ Y <- Boston$medv[1:400]
+ swReg1 <- swReg(X, Y, stepsize = .01)
+ swReg2 <- swReg(X, Y, stepsize = .01, standardizeY = FALSE)
+ plot.swReg(swReg1, newdata = Boston[401:502,-14])
+ plot.swReg(swReg2, newdata = Boston[401:502,-14])
+}

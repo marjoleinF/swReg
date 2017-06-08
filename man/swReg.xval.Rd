@@ -17,3 +17,12 @@ A list with iteration numbers on the x-axis and coefficient values on the y-axis
 \description{
 \code{swReg.xval} returns cross validated predictions for the swReg model specified.
 }
+\examples{
+## Example using Boston Housing data:
+ library(MASS)
+ X <- as.matrix(Boston[,-14])
+ Y <- Boston$medv
+ swReg2 <- swReg(X, Y, stepsize = .01)
+ xval2 <- swReg.xval(swReg2)
+ mean(xval2$error^2)# MSE
+}

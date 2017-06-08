@@ -4,24 +4,27 @@
 \alias{swReg}
 \title{Perform forward stagewise regression}
 \usage{
-swReg(X, Y, stepsize = 0.1, threshold = 0.1)
+swReg(X, Y, stepsize = 0.1, standardizeY = TRUE)
 }
 \arguments{
 \item{X}{Matrix of predictor variables.}
 
 \item{Y}{Outcome variable (vector).}
 
-\item{stepsize}{Value with which the standardized coefficients are updated in each stage (iteration).}
+\item{stepsize}{numeric. Value with which the (un)standardized coefficients 
+are updated in each iteration (a.k.a. epsilon).}
 
-\item{threshold}{Convergence criterion: When none of the predictors has a correlation greater than or equal to the threshold, the algorithm converges.}
+\item{standardizeY}{logical. Should the response be standardized prior to
+application of the algorithm? If \code{TRUE}, stepsize can be interpreted
+as a correlation. If \code{sd(Y) > 1}, setting \code{standardizeY = FALSE} 
+will increase the number of steps needed for convergence.}
 }
 \value{
 The function returns a list with the following elements:
 unstandardized.coef = bUnstand, 
 standardized.coef = b,
 iteration = iteration, 
-stepsize = stepsize, 
-threshold = threshold, 
+stepsize = stepsize (epsilon), 
 coef.path = dataframe with standardized coefficient values for each predictor variable, at each stage or iteration of the algorithm
 data = list with original data (X andY)
 }
@@ -29,7 +32,9 @@ data = list with original data (X andY)
 \code{swReg} performs forward stagewise regression.
 }
 \details{
-The function performs forward stagewise regression, as described in Efron, B., Hastie, T., Johnstone, I., & Tibshirani, R. (2004). Least angle regression. The Annals of Statistics, 32(2), 407-499.
+The function performs incremental forward stagewise regression, as 
+described in Hastie, Tisbhirani & Friedman (2009). Hastie, T., Tibshirani, 
+R., & Friedman, J. (2009). The Elements of Statistical Learning.
 }
 \examples{
 ## Example using Boston housing data:
@@ -38,17 +43,7 @@ The function performs forward stagewise regression, as described in Efron, B., H
  Y <- Boston$medv
    
  ## Run forward stagewise regression:
- swReg.2 <- swReg(X, Y, st = .2, thr = .2)
- swReg.1 <- swReg(X, Y, st = .1, thr = .1)
- swReg.01 <- swReg(X, Y, st = .01, thr = .01)
- swReg.001 <- swReg(X, Y, st = .001, thr = .001)
+ swReg1 <- swReg(X, Y, stepsize = .01)
+ swReg2 <- swReg(X, Y, stepsize = .01, standardizeY = FALSE)
    
- ## Plot coefficient paths:
- par(mfrow=c(2,2))
- plot.swReg(swReg.2)
- plot.swReg(swReg.1)
- plot.swReg(swReg.01)
- plot.swReg(swReg.001)
- 
- 
 }

@@ -4,15 +4,20 @@
 #' 
 #' @param X Matrix of predictor variables.
 #' @param Y Outcome variable (vector).
-#' @param stepsize Value with which the standardized coefficients are updated in each stage (iteration).
-#' @param threshold Convergence criterion: When none of the predictors has a correlation greater than or equal to the threshold, the algorithm converges.
-#' @details The function performs forward stagewise regression, as described in Efron, B., Hastie, T., Johnstone, I., & Tibshirani, R. (2004). Least angle regression. The Annals of Statistics, 32(2), 407-499.
+#' @param stepsize numeric. Value with which the (un)standardized coefficients 
+#' are updated in each iteration (a.k.a. epsilon).
+#' @param standardizeY logical. Should the response be standardized prior to
+#' application of the algorithm? If \code{TRUE}, stepsize can be interpreted
+#' as a correlation. If \code{sd(Y) > 1}, setting \code{standardizeY = FALSE} 
+#' will increase the number of steps needed for convergence.  
+#' @details The function performs incremental forward stagewise regression, as 
+#' described in Hastie, Tisbhirani & Friedman (2009). Hastie, T., Tibshirani, 
+#' R., & Friedman, J. (2009). The Elements of Statistical Learning.
 #' @return The function returns a list with the following elements:
 #' unstandardized.coef = bUnstand, 
 #' standardized.coef = b,
 #' iteration = iteration, 
-#' stepsize = stepsize, 
-#' threshold = threshold, 
+#' stepsize = stepsize (epsilon), 
 #' coef.path = dataframe with standardized coefficient values for each predictor variable, at each stage or iteration of the algorithm
 #' data = list with original data (X andY)
 #' @export
@@ -22,52 +27,52 @@
 #'  Y <- Boston$medv
 #'    
 #'  ## Run forward stagewise regression:
-#'  swReg.2 <- swReg(X, Y, st = .2, thr = .2)
-#'  swReg.1 <- swReg(X, Y, st = .1, thr = .1)
-#'  swReg.01 <- swReg(X, Y, st = .01, thr = .01)
-#'  swReg.001 <- swReg(X, Y, st = .001, thr = .001)
+#'  swReg1 <- swReg(X, Y, stepsize = .01)
+#'  swReg2 <- swReg(X, Y, stepsize = .01, standardizeY = FALSE)
 #'    
-#'  ## Plot coefficient paths:
-#'  par(mfrow=c(2,2))
-#'  plot.swReg(swReg.2)
-#'  plot.swReg(swReg.1)
-#'  plot.swReg(swReg.01)
-#'  plot.swReg(swReg.001)
-#'  
-#'  
-swReg <- function (X, Y, stepsize = 0.1, threshold = 0.1) 
+swReg <- function (X, Y, stepsize = 0.1, standardizeY = TRUE) 
 {
+  # ESL, print 10, page 86:
+  #
+  # Algorithm 3.4 Incremental Forward Stagewise Regression-FS_epsilon
+  # Step 1. Start with the residual r equal to y and beta_1, beta_2, ..., beta_p = 0. All the
+  # predictors are standardized to have mean zero and unit norm.
+  n <- nrow(X)
+  p <- ncol(X)
   sX <- scale(X)
-  sY <- scale(Y)
-  b <- vector(length = ncol(X))
-  rY <- sY
-  sgn <- 0
-  lastsgn <- 0
-  index <- 0
-  lastindex <- 0
-  iteration <- 0
+  b <- rep(0, times = p)
+  if(standardizeY) {r <- scale(Y)} else {r <- Y}
+  sgn <- index <- iteration <- 0
   path <- list()
-  abs(max(t(rY) %*% sX)) > threshold & (index != lastindex | sgn == lastsgn)
-  # if there are >1 variables with the maximum correlation, this gives warnings:  
-  while(abs(max(t(rY) %*% sX)) > threshold & (index != lastindex | sgn == lastsgn)) {
+  cur_max_cor <- stepsize
+  # Step 4. Repeat Steps 2 and 3 until the residuals are uncorrelated with all the predictors:
+  while(cur_max_cor >= stepsize) {
     iteration <- iteration + 1
     lastindex <- index
     lastsgn <- sgn
-    index <- which(abs(t(rY) %*% sX) == max(abs(t(rY) %*% sX)))
-    sgn <- sign((t(rY) %*% sX)[index])
-    b[index] <- b[index] + sgn*stepsize
-    rY <- sY - sX %*% b
+    # Step 2. Find the predictor x_j most correlated with r:
+    cur_cors <- (t(r - mean(r)) %*% sX)/n
+    cur_max_cor <- max(abs(cur_cors))
+    j <- which(abs(cur_cors) == cur_max_cor)[1]
+    # Step 3. Update beta_j  <-  beta_j + delta_j , where delta_j = epsilon x sign[<x_j, r>] and epsilon > 0 is a small
+    # step size, and set r <- r ??? delta_j x_j.
+    sgn <- sign(cur_cors[j])
+    b[j] <- b[j] + sgn*stepsize
+    r <- r - sgn*stepsize*sX[,j]
     path[[iteration]] <- b
   }
-  bUnstand <- (b/attr(sX, "scaled:scale"))*attr(sY, "scaled:scale") 
-  intercept <- attr(sY, "scaled:center") - bUnstand %*% attr(sX, "scaled:center")
+  if(standardizeY) {
+    b <- b*sd(Y)
+  }
+  bUnstand <- b/attr(sX, "scaled:scale") 
+  intercept <- mean(Y) - attr(sX, "scaled:center") %*% bUnstand
   bUnstand <- c(intercept, bUnstand)
   names(bUnstand) <- c("(Intercept)", colnames(X))
   
   return(list(unstandardized.coef = bUnstand, standardized.coef = b,
-              iteration = iteration, stepsize = stepsize, threshold = threshold, 
+              iteration = iteration, stepsize = stepsize, standardizeY = standardizeY, 
               coef.path = data.frame(matrix(
-                unlist(path), ncol = ncol(X), nrow = iteration, byrow = TRUE, 
+                unlist(path), ncol = p, nrow = iteration, byrow = TRUE, 
                 dimnames = list(1:iteration, colnames(X)))),
               data = list(X = X, Y = Y))
   )  
@@ -83,11 +88,28 @@ swReg <- function (X, Y, stepsize = 0.1, threshold = 0.1)
 #' @return A plot with iteration numbers on the x-axis and coefficient values on the y-axis,
 #' @export
 #' @method plot swReg
+#' @examples ## Example using Boston Housing data:
+#'  library(MASS)
+#'  X <- as.matrix(Boston[,-14])
+#'  Y <- Boston$medv
+#'  swReg1 <- swReg(X, Y, stepsize = .01)
+#'  swReg2 <- swReg(X, Y, stepsize = .01, standardizeY = FALSE)
+#'    
+#'  ## Plot coefficient paths:
+#'  par(mfrow=c(1,2))
+#'  plot.swReg(swReg1)
+#'  plot.swReg(swReg2)
+#'  
 plot.swReg <- function(x, legend = TRUE, ...) {
+  if(x$standardizeY) {
+    main = "Completely standardized coeffcient paths"
+  } else {
+    main = "Coefficient paths (standardized X)"
+  }
   plot(x$coef.path[,1], type = "l", 
        ylim = c(min(x$coef.path), max(x$coef.path)), 
        ylab = "coefficient", xlab = "iteration", 
-       main = "Standardized coefficient paths", 
+       main = main, 
        sub = paste("stepsize =", x$stepsize))
   for (i in 2:ncol(x$data$X)) {lines(x$coef.path[,i], col = i)}
   if(legend) {
@@ -107,6 +129,15 @@ plot.swReg <- function(x, legend = TRUE, ...) {
 #' @param ... currently not used.
 #' @return A vector of predictions for \code{newdata}.
 #' @export
+#' @method predict swReg
+#' @examples ## Example using Boston Housing data:
+#'  library(MASS)
+#'  X <- as.matrix(Boston[1:400,-14])
+#'  Y <- Boston$medv[1:400]
+#'  swReg1 <- swReg(X, Y, stepsize = .01)
+#'  swReg2 <- swReg(X, Y, stepsize = .01, standardizeY = FALSE)
+#'  plot.swReg(swReg1, newdata = Boston[401:502,-14])
+#'  plot.swReg(swReg2, newdata = Boston[401:502,-14])
 predict.swReg <- function(object, newdata = object$data$X, ...) {
   cbind(rep(1, times = nrow(newdata)), as.matrix(newdata)) %*% object$unstandardized.coef
 }
@@ -120,6 +151,13 @@ predict.swReg <- function(object, newdata = object$data$X, ...) {
 #' @param k integer. Number of folds to be used.
 #' @return A list with iteration numbers on the x-axis and coefficient values on the y-axis,
 #' @export
+#' @examples ## Example using Boston Housing data:
+#'  library(MASS)
+#'  X <- as.matrix(Boston[,-14])
+#'  Y <- Boston$medv
+#'  swReg2 <- swReg(X, Y, stepsize = .01)
+#'  xval2 <- swReg.xval(swReg2)
+#'  mean(xval2$error^2)# MSE
 swReg.xval <- function(object, k = 10) {
   # get observation ids for in folds:
   ids <- peperr::resample.indices(n = nrow(object$data$X), sample.n = 10, method = "cv")
@@ -135,7 +173,7 @@ swReg.xval <- function(object, k = 10) {
                                           Y = object$data$Y[ids$not.in.sample[[i]]]))
     # fit models on training observations
     models[[i]] <- swReg(xvaldatasets[[i]]$train$X, xvaldatasets[[i]]$train$Y, 
-                         stepsize = object$stepsize, threshold = object$threshold)
+                         stepsize = object$stepsize, standardizeY = object$standardizeY)
     # make predictions for test observations:
     xvaldatasets[[i]]$test$xvalpredY <- predict.swReg(models[[i]], newdata = xvaldatasets[[i]]$test$X)
   }

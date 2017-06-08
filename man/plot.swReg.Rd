@@ -19,3 +19,17 @@ A plot with iteration numbers on the x-axis and coefficient values on the y-axis
 \description{
 \code{plot.swReg} plots non-zero coefficients for each iterations of forward stagewise regression.
 }
+\examples{
+## Example using Boston Housing data:
+ library(MASS)
+ X <- as.matrix(Boston[,-14])
+ Y <- Boston$medv
+ swReg1 <- swReg(X, Y, stepsize = .01)
+ swReg2 <- swReg(X, Y, stepsize = .01, standardizeY = FALSE)
+   
+ ## Plot coefficient paths:
+ par(mfrow=c(1,2))
+ plot.swReg(swReg1)
+ plot.swReg(swReg2)
+ 
+}
